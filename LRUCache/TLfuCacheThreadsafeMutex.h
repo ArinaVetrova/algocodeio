@@ -1,13 +1,14 @@
 #pragma once
 
-#include <unordered_map>
-#include <set>
 #include <iostream>
+#include <set>
+#include <shared_mutex>
+#include <unordered_map>
 
 using namespace std;
 
 template <typename Key, typename Val>
-class TLfuCache {
+class TLfuCacheMtx {
 private:
     using Timestamp = uint64_t;
     struct Frequency
@@ -31,6 +32,8 @@ private:
     unordered_map<Key, Val> Data;
     unordered_map<Key, Frequency> FreqMap;
     set<pair<Frequency, Key>> QueueToEvict;
+
+    mutable std::shared_mutex mtx;
 
     void ResetKeyUsage(const Key& key) {
         auto it = FreqMap.find(key);
@@ -57,11 +60,14 @@ private:
     }
 
 public:
-    TLfuCache(size_t sizeLimit) : SizeLimit(sizeLimit) {
+    TLfuCacheMtx(size_t sizeLimit) : SizeLimit(sizeLimit) {
         Data.reserve(sizeLimit);
     }
 
     bool Erase(const Key& key) {
+        // exclusively lock Cache containers during erase operation
+        std::unique_lock<std::shared_mutex> lock(mtx);
+
         auto it = Data.find(key);
         if (it == Data.end()) {
             std::cerr << "Erase: key not found" << std::endl;
@@ -80,11 +86,16 @@ public:
             return;
         }
 
+        // exclusively lock Cache containers during add/update operation
+        std::unique_lock<std::shared_mutex> lock(mtx);
         if (!Data.count(key) && Data.size() == SizeLimit) {
             if (!QueueToEvict.empty())
             {
                 auto [_, keyToErase] = *QueueToEvict.begin();
-                Erase(keyToErase);
+                // change usage of Erase here to ResetKeyUsage + Data.erase
+                // to avoid recurcive mtx lock (Erase also using same mtx)
+                ResetKeyUsage(keyToErase);
+                Data.erase(keyToErase);
             }
         }
 
@@ -93,18 +104,22 @@ public:
         Data[key] = std::move(value);
     }
 
+    // unique lock Cache containers due to UpdateKeyUsage changes common containers
     Val* TryGet(const Key& key) {
+        std::unique_lock<std::shared_mutex> lock(mtx);
         if (!Data.count(key)) {
             std::cerr << "Get: key not found" << std::endl;
             return nullptr;
         }
 
         UpdateKeyUsage(key);
+
         auto it = Data.find(key);
         return &it->second;
     }
 
     bool Exist(const Key& key) const {
+        std::shared_lock<std::shared_mutex> lock(mtx);
         return Data.count(key);
     }
 };

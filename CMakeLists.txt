@@ -12,3 +12,6 @@ target_link_libraries(LRUCache PRIVATE GTest::gtest GTest::gtest_main)
 
 add_executable(LFUCache LRUCache/TLfuCache.h LRUCache/testLfuCache.cpp LRUCache/main.cpp)
 target_link_libraries(LFUCache PRIVATE GTest::gtest GTest::gtest_main)
+
+add_executable(LFUCacheThreadsafeMtx LRUCache/TLfuCacheThreadsafeMutex.h LRUCache/testLfuCacheThreadsafeMutex.cpp LRUCache/main.cpp)
+target_link_libraries(LFUCacheThreadsafeMtx PRIVATE GTest::gtest GTest::gtest_main Threads::Threads)

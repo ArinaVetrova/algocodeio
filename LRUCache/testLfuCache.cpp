@@ -71,3 +71,4 @@ TEST(TLfuCache, Evict)
         EXPECT_EQ(*cache.TryGet('d'), 5);
     });
 }
+
