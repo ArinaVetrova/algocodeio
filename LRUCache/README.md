@@ -1,4 +1,4 @@
-# Version 1 – исправленный LRU - TLruCache.cpp
+## Version 1 – исправленный LRU (`TLruCache.cpp`)
 
 1. **Класс сделан шаблонным**  
    Класс теперь является шаблоном и принимает типы `Key` и `Val`.
@@ -30,3 +30,31 @@
 
 8. **Исключения убраны**  
    Вместо выброса исключений методы возвращают `false` или `nullptr` при неудаче, что делает API безопаснее и предсказуемее.
+
+9. **Тесты**: testLruCache.cpp
+---
+
+## Версия 2 – LFU Cache (`TLfuCache.cpp`)
+
+- **Политика вытеснения**: Least Frequently Used; при равных частотах учитывается старый timestamp.
+- **Структуры данных**:
+  - `unordered_map<Key, Val> Data`
+  - `unordered_map<Key, Frequency> FreqMap` (`Frequency { Freq, Tm }`)
+  - `set<pair<Frequency, Key>> QueueToEvict`
+- **Вспомогательные функции**:
+  - `ResetKeyUsage(key)` — удаляет ключ из слежения LFU.
+  - `UpdateKeyUsage(key)` — увеличивает частоту и обновляет timestamp.
+- **Эвикция**: удаляется ключ с наименьшей частотой и старым timestamp.
+- **Set** использует move-семантику; `TryGet` возвращает указатель.
+- **Сложность**: `O(log N)` для вставки/обновления (`set`), `O(1)` поиск по ключу.
+- **Тесты**: `testLfuCache.cpp`
+
+---
+
+## Версия 3 – Потокобезопасный LFU (`TLfuCacheThreadsafeMutex.cpp`)
+
+- **Мьютекс**: `std::shared_mutex mtx` для потокобезопасного доступа.
+  - `Exist` использует shared lock.
+  - `Set`, `Erase`, `TryGet` используют unique lock для модификации контейнеров.
+- **Эвикция**: сохраняется логика LFU; при превышении `SizeLimit` удаляется ключ с наименьшей частотой.
+- **Тесты**: `testLfuCacheThreadsafeMutex.cpp`
