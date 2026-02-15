@@ -1,3 +1,5 @@
+#pragma once 
+
 #include <unordered_map>
 #include <set>
 #include <iostream>
@@ -27,7 +29,7 @@ private:
         if (it == LastUsed.end()){
             return;
         }
-        Queue.erase({LastUsed[key], key});
+        Queue.erase({it->second, key});
         LastUsed.erase(key);
     }
 
@@ -49,7 +51,7 @@ public:
     // used helper func to simplify
     bool Erase(const Key& key) {
         if (!Data.count(key)) {
-            std::err << "Erase: key not found" std::endl;
+            std::cerr << "Erase: key not found" << std::endl;
             return false;
         }
 
@@ -91,7 +93,7 @@ public:
     // 2. to give signal outside that the key is not found - return nullptr instead of throwing an exception
     Val* TryGet(const Key& key) {
         if (!Data.count(key)) {
-            std::err << "Get: key not found" std::endl;
+            std::cerr << "Get: key not found" << std::endl;
             return nullptr;
         }
 
