@@ -1,7 +1,7 @@
 #pragma once
 
 #include <unordered_map>
-#include <set>
+#include <list>
 #include <iostream>
 
 using namespace std;
@@ -9,67 +9,96 @@ using namespace std;
 template <typename Key, typename Val>
 class TLfuCache {
 private:
-    using Timestamp = uint64_t;
-    struct Frequency
-    {
-        uint64_t Freq = 0;
-        Timestamp Tm = 0;
+    using Frequency = int;
 
-        bool operator<(const Frequency& other) const
-        {
-            if (Freq != other.Freq)
-            {
-                return Freq < other.Freq;
-            }
-            return Tm < other.Tm;
-        }
+    struct Node {
+        Val value;
+        uint64_t freq;
+        std::list<Key>::iterator it;
     };
+    unordered_map<Key, Node> KeyMap;
+    unordered_map<Frequency, std::list<Key>> FreqBuckets;
 
     size_t SizeLimit = 0;
-    Timestamp globalTm = 0;
+    Frequency MinFreq = 0;
 
-    unordered_map<Key, Val> Data;
-    unordered_map<Key, Frequency> FreqMap;
-    set<pair<Frequency, Key>> QueueToEvict;
+    void UpdateFrequency(const Key& key) {
+        auto it = KeyMap.find(key);
+        if (it == KeyMap.end()) return;
 
-    void ResetKeyUsage(const Key& key) {
-        auto it = FreqMap.find(key);
-        if (it == FreqMap.end()){
-            return;
+        Node& node = it->second;
+        uint64_t oldFreq = node.freq;
+        uint64_t newFreq = oldFreq + 1;
+
+        // Remove key from old frequency bucket
+        auto& oldBucket = FreqBuckets[oldFreq];
+        oldBucket.erase(node.it);
+
+        // Update frequency in node
+        node.freq = newFreq;
+
+        // Add to new frequency bucket (front = most recently used within this frequency)
+        auto& newBucket = FreqBuckets[newFreq];
+        newBucket.push_front(key);
+        node.it = newBucket.begin();
+
+        // If old bucket is empty and it was the minimum frequency, increment MinFreq
+        if (oldFreq == MinFreq && oldBucket.empty()) {
+            FreqBuckets.erase(oldFreq);
+
+            // Find new minimum frequency among remaining buckets
+            updateMinFreq();
         }
-        QueueToEvict.erase({it->second, key});
-        FreqMap.erase(it);
     }
 
-    void UpdateKeyUsage(const Key& key) {
-        auto it = FreqMap.find(key);
-        if (it != FreqMap.end()) {
-            QueueToEvict.erase({it->second, key});
-            it->second.Freq++;
-            it->second.Tm = ++globalTm;
-            QueueToEvict.insert({it->second, key});
-        }
-        else {
-            Frequency freq{1, ++globalTm};
-            FreqMap[key] = freq;
-            QueueToEvict.insert({freq, key});
+    void EvictLFU() {
+        // Get bucket with minimum frequency
+        auto& minBucket = FreqBuckets[MinFreq];
+
+        // Evict the least recently used key (back of the list)
+        Key keyToErase = minBucket.back();
+        minBucket.pop_back();
+
+        KeyMap.erase(keyToErase);
+
+        // Update MinFreq: find new minimum frequency in remaining buckets
+        updateMinFreq();
+    }
+
+    void updateMinFreq()
+    {
+        if (FreqBuckets.empty()) {
+            MinFreq = 0; // Cache is now empty
+        } else {
+            MinFreq = std::numeric_limits<Frequency>::max();
+            for (const auto& pair : FreqBuckets) {
+                if (pair.first < MinFreq) {
+                    MinFreq = pair.first;
+                }
+            }
         }
     }
 
 public:
     TLfuCache(size_t sizeLimit) : SizeLimit(sizeLimit) {
-        Data.reserve(sizeLimit);
+        KeyMap.reserve(sizeLimit);
     }
 
     bool Erase(const Key& key) {
-        auto it = Data.find(key);
-        if (it == Data.end()) {
+        auto itKeyMap = KeyMap.find(key);
+        if (itKeyMap == KeyMap.end()) {
             std::cerr << "Erase: key not found" << std::endl;
             return false;
         }
 
-        ResetKeyUsage(key);
-        Data.erase(it);
+        Node& node = itKeyMap->second;
+        const auto& itFreqBuckets = FreqBuckets.find(node.freq);
+        if (itFreqBuckets != FreqBuckets.end())
+        {
+            std::list<Key>& list = itFreqBuckets->second;
+            list.erase(node.it);
+        }
+        KeyMap.erase(itKeyMap);
         return true;
     }
 
@@ -80,31 +109,37 @@ public:
             return;
         }
 
-        if (!Data.count(key) && Data.size() == SizeLimit) {
-            if (!QueueToEvict.empty())
-            {
-                auto [_, keyToErase] = *QueueToEvict.begin();
-                Erase(keyToErase);
-            }
+        if (auto it = KeyMap.find(key); it != KeyMap.end()) {
+            it->second.value = std::move(value);
+            UpdateFrequency(key);
+            return;
         }
 
-        UpdateKeyUsage(key);
+        if (KeyMap.size() >= SizeLimit) {
+            EvictLFU();
+        }
 
-        Data[key] = std::move(value);
+        // Insert new element with frequency 1
+        auto& bucket = FreqBuckets[1];
+        bucket.push_front(key);  // Front = most recently added within frequency 1
+
+        // Create node with reference to this key in bucket
+        KeyMap[key] = {std::move(value), 1, bucket.begin()};
+        MinFreq = 1;  // New element has frequency 1 — this is the new minimum
     }
 
     Val* TryGet(const Key& key) {
-        if (!Data.count(key)) {
+        auto itMap = KeyMap.find(key);
+        if (itMap == KeyMap.end()) {
             std::cerr << "Get: key not found" << std::endl;
             return nullptr;
         }
 
-        UpdateKeyUsage(key);
-        auto it = Data.find(key);
-        return &it->second;
+        UpdateFrequency(key);
+        return &itMap->second.value;
     }
 
     bool Exist(const Key& key) const {
-        return Data.count(key);
+        return KeyMap.count(key);
     }
 };
