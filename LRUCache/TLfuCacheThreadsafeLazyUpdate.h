@@ -14,7 +14,7 @@ private:
     using Frequency = int;
 
     struct Node {
-        Val value;
+        shared_ptr<Val> value;
         int freq;
         uint64_t readCounter;
         std::list<Key>::iterator it;
@@ -69,6 +69,9 @@ private:
 
         KeyMap.erase(keyToErase);
 
+        if (minBucket.empty()) {
+            FreqBuckets.erase(MinFreq);
+        }
         // Update MinFreq: find new minimum frequency in remaining buckets
         updateMinFreq();
     }
@@ -122,7 +125,7 @@ public:
 
         std::unique_lock<std::shared_mutex> lock(mtx);
         if (auto it = KeyMap.find(key); it != KeyMap.end()) {
-            it->second.value = std::move(value);
+            it->second.value = std::make_shared<Val>(std::move(value));
             UpdateFrequency(key);
             it->second.readCounter++;
             return;
@@ -137,11 +140,11 @@ public:
         bucket.push_front(key);  // Front = most recently added within frequency 1
 
         // Create node with reference to this key in bucket
-        KeyMap[key] = {std::move(value), 1, 0, bucket.begin()};
+        KeyMap[key] = {std::make_shared<Val>(std::move(value)), 1, 0, bucket.begin()};
         MinFreq = 1;  // New element has frequency 1 — this is the new minimum
     }
 
-    Val* TryGet(const Key& key) {
+    shared_ptr<Val> TryGet(const Key& key) {
         std::shared_lock<std::shared_mutex> shLock(mtx);
         auto itMap = KeyMap.find(key);
         if (itMap == KeyMap.end()) {
@@ -163,7 +166,7 @@ public:
                 itAfter->second.readCounter = 0;
             }
         }
-        return &itMap->second.value;
+        return itMap->second.value;
     }
 
     bool Exist(const Key& key) const {

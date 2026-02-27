@@ -92,9 +92,9 @@ TEST(TLfuCacheThreadsafeLazyUpdate, ThreadSafeEvictDeterministic) {
     // insert 'c', should evict 'b' (freq lower)
     cache.Set('c', 3);
 
-    auto* valA = cache.TryGet('a');
-    auto* valB = cache.TryGet('b');
-    auto* valC = cache.TryGet('c');
+    auto valA = cache.TryGet('a');
+    auto valB = cache.TryGet('b');
+    auto valC = cache.TryGet('c');
 
     EXPECT_EQ(valA ? *valA : -1, 1);
     EXPECT_EQ(valB, nullptr); // b evicted
@@ -143,7 +143,7 @@ TEST(TLfuCacheThreadsafeLazyUpdate, LazyUpdateThreshold10_SingleThread) {
     EXPECT_TRUE(cache.Exist('d'));  // new key inserted
 
     // Verify 'b' frequency was updated
-    auto* valB = cache.TryGet('b');
+    auto valB = cache.TryGet('b');
     EXPECT_NE(valB, nullptr);
     EXPECT_EQ(*valB, 200);
 }
@@ -165,7 +165,7 @@ TEST(TLfuCacheThreadsafeLazyUpdate, LazyUpdateThreshold10_MultiThread) {
     }
 
     // After 15 reads: counter reaches 10 ->freq updated to 2
-    auto* valX = cache.TryGet('a');
+    auto valX = cache.TryGet('a');
     EXPECT_NE(valX, nullptr);
     EXPECT_EQ(*valX, 0);
 

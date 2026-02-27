@@ -14,8 +14,8 @@ TEST(TLfuCache, Basic)
     EXPECT_TRUE(cache.Exist('b'));
 
     EXPECT_NO_THROW({
-        auto* valA = cache.TryGet('a');
-        auto* valB = cache.TryGet('b');
+        auto valA = cache.TryGet('a');
+        auto valB = cache.TryGet('b');
         EXPECT_EQ(*valA, 1);
         EXPECT_EQ(*valB, 2);
     });
@@ -24,8 +24,8 @@ TEST(TLfuCache, Basic)
     EXPECT_FALSE(cache.Exist('a'));
 
     EXPECT_NO_THROW({
-    auto* valA = cache.TryGet('a');
-    auto* valB = cache.TryGet('b');
+    auto valA = cache.TryGet('a');
+    auto valB = cache.TryGet('b');
     EXPECT_EQ(valA, nullptr);
     EXPECT_EQ(*valB, 2);
     });

@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <list>
 #include <iostream>
+#include <memory>
 
 using namespace std;
 
@@ -12,7 +13,7 @@ private:
     using Frequency = int;
 
     struct Node {
-        Val value;
+        shared_ptr<Val> value;
         uint64_t freq;
         std::list<Key>::iterator it;
     };
@@ -61,6 +62,9 @@ private:
 
         KeyMap.erase(keyToErase);
 
+        if (minBucket.empty()) {
+            FreqBuckets.erase(MinFreq);
+        }
         // Update MinFreq: find new minimum frequency in remaining buckets
         updateMinFreq();
     }
@@ -110,7 +114,7 @@ public:
         }
 
         if (auto it = KeyMap.find(key); it != KeyMap.end()) {
-            it->second.value = std::move(value);
+            it->second.value = std::make_shared<Val>(std::move(value));
             UpdateFrequency(key);
             return;
         }
@@ -124,11 +128,11 @@ public:
         bucket.push_front(key);  // Front = most recently added within frequency 1
 
         // Create node with reference to this key in bucket
-        KeyMap[key] = {std::move(value), 1, bucket.begin()};
+        KeyMap[key] = {std::make_shared<Val>(std::move(value)), 1, bucket.begin()};
         MinFreq = 1;  // New element has frequency 1 — this is the new minimum
     }
 
-    Val* TryGet(const Key& key) {
+    shared_ptr<Val> TryGet(const Key& key) {
         auto itMap = KeyMap.find(key);
         if (itMap == KeyMap.end()) {
             std::cerr << "Get: key not found" << std::endl;
@@ -136,7 +140,7 @@ public:
         }
 
         UpdateFrequency(key);
-        return &itMap->second.value;
+        return itMap->second.value;
     }
 
     bool Exist(const Key& key) const {
