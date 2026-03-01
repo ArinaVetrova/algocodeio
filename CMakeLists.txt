@@ -15,3 +15,6 @@ target_link_libraries(LFUCache PRIVATE GTest::gtest GTest::gtest_main)
 
 add_executable(LfuCacheThreadsafeLazyUpdate LRUCache/TLfuCacheThreadsafeLazyUpdate.h LRUCache/testLfuCacheThreadsafeLazyUpdate.cpp LRUCache/main.cpp)
 target_link_libraries(LfuCacheThreadsafeLazyUpdate PRIVATE GTest::gtest GTest::gtest_main Threads::Threads)
+
+add_executable(LfuCacheLockStripping LRUCache/TLfuCacheLockStripping.h LRUCache/testLfuCacheLockStripping.cpp LRUCache/main.cpp)
+target_link_libraries(LfuCacheLockStripping PRIVATE GTest::gtest GTest::gtest_main Threads::Threads)

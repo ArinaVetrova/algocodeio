@@ -45,7 +45,6 @@ private:
 
     unordered_map<Key, Node> KeyMap;
     unordered_map<Frequency, std::list<Key>> FreqBuckets;
-    //unordered_map<Key, uint64_t> ReadCounter; // counter for TryGet operations
 
     size_t SizeLimit = 0;
     Frequency MinFreq = 0;
