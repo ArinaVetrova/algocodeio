@@ -46,9 +46,7 @@ private:
         // If old bucket is empty and it was the minimum frequency, increment MinFreq
         if (oldFreq == MinFreq && oldBucket.empty()) {
             FreqBuckets.erase(oldFreq);
-
-            // Find new minimum frequency among remaining buckets
-            updateMinFreq();
+            MinFreq = newFreq;
         }
     }
 
@@ -66,10 +64,10 @@ private:
             FreqBuckets.erase(MinFreq);
         }
         // Update MinFreq: find new minimum frequency in remaining buckets
-        updateMinFreq();
+        UpdateMinFreq();
     }
 
-    void updateMinFreq()
+    void UpdateMinFreq()
     {
         if (FreqBuckets.empty()) {
             MinFreq = 0; // Cache is now empty
@@ -101,6 +99,13 @@ public:
         {
             std::list<Key>& list = itFreqBuckets->second;
             list.erase(node.it);
+            if (list.empty()) {
+                FreqBuckets.erase(node.freq);
+
+                if (node.freq == MinFreq) {
+                    UpdateMinFreq();
+                }
+            }
         }
         KeyMap.erase(itKeyMap);
         return true;

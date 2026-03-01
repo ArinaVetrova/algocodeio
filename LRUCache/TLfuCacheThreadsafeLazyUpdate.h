@@ -5,6 +5,7 @@
 #include <iostream>
 #include <thread>
 #include <shared_mutex>
+#include <atomic>
 
 using namespace std;
 
@@ -16,9 +17,32 @@ private:
     struct Node {
         shared_ptr<Val> value;
         int freq;
-        uint64_t readCounter;
+        std::atomic<uint64_t> readCounter;
         std::list<Key>::iterator it;
+
+        // create constructor and move-constructor to be able to construct Node with atomic readCounter
+        Node() = default;
+        Node(std::shared_ptr<Val> v, int f, uint64_t counter, std::list<Key>::iterator iter)
+                : value(std::move(v)),
+                freq(f),
+                readCounter(counter),
+                it(iter){}
+
+        Node(Node&& other) noexcept
+            : value(std::move(other.value)), freq(other.freq), readCounter(other.readCounter.load()), it(other.it) {}
+
+        Node& operator=(Node&& other) noexcept {
+            value = std::move(other.value);
+            freq = other.freq;
+            readCounter.store(other.readCounter.load());
+            it = other.it;
+            return *this;
+        }
+
+        Node(const Node&) = delete;
+        Node& operator=(const Node&) = delete;
     };
+
     unordered_map<Key, Node> KeyMap;
     unordered_map<Frequency, std::list<Key>> FreqBuckets;
     //unordered_map<Key, uint64_t> ReadCounter; // counter for TryGet operations
@@ -54,8 +78,7 @@ private:
         // If old bucket is empty and it was the minimum frequency, increment MinFreq
         if (oldFreq == MinFreq && oldBucket.empty()) {
             FreqBuckets.erase(oldFreq);
-            // Find new minimum frequency among remaining buckets
-            updateMinFreq();
+            MinFreq = newFreq;
         }
     }
 
@@ -73,10 +96,10 @@ private:
             FreqBuckets.erase(MinFreq);
         }
         // Update MinFreq: find new minimum frequency in remaining buckets
-        updateMinFreq();
+        UpdateMinFreq();
     }
 
-    void updateMinFreq()
+    void UpdateMinFreq()
     {
         if (FreqBuckets.empty()) {
             MinFreq = 0; // Cache is now empty
@@ -111,6 +134,13 @@ public:
         {
             std::list<Key>& list = itFreqBuckets->second;
             list.erase(node.it);
+            if (list.empty()) {
+                FreqBuckets.erase(node.freq);
+
+                if (node.freq == MinFreq) {
+                    UpdateMinFreq();
+                }
+            }
         }
         KeyMap.erase(itKeyMap);
         return true;
@@ -152,6 +182,8 @@ public:
             return nullptr;
         }
 
+        //save value to return to avoid iterator invalidation or changes in the map between shLock.unlock and uniqueLock.lock
+        auto val = itMap->second.value;
         itMap->second.readCounter++;
 
         // If readCount threshrold met update frequency for this key under unique lock
@@ -166,7 +198,7 @@ public:
                 itAfter->second.readCounter = 0;
             }
         }
-        return itMap->second.value;
+        return val;
     }
 
     bool Exist(const Key& key) const {
