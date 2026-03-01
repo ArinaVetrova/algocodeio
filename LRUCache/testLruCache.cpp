@@ -88,3 +88,29 @@ TEST(TLruCache, ChangeValue)
         EXPECT_EQ(*cache.TryGet('b'), 2);
     });
 }
+
+// Check TryGet updates usage and protect from eviction
+TEST(TLruCache, TryGetUpdatesUsage)
+{
+    TLruCache<char,int> cache(2);
+
+    cache.Set('a', 1);
+    cache.Set('b', 2);
+
+    EXPECT_TRUE(cache.Exist('a'));
+    EXPECT_TRUE(cache.Exist('b'));
+
+    EXPECT_NO_THROW({
+        auto valA = cache.TryGet('a');
+        auto valB = cache.TryGet('b');
+        EXPECT_EQ(*valA, 1);
+        EXPECT_EQ(*valB, 2);
+    });
+    
+    cache.TryGet('a');
+    cache.Set('c', 3);
+
+    EXPECT_TRUE(cache.Exist('a'));
+    EXPECT_FALSE(cache.Exist('b'));
+    EXPECT_TRUE(cache.Exist('c'));
+}

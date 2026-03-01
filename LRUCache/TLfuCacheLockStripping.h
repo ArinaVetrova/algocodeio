@@ -114,20 +114,21 @@ public:
 
         for (size_t i = 0; i < numShards; ++i)
         {
-            Shards.emplace_back(make_unique<Shard>(sizeLimit));
+            // Total capacity may be smaller than requested because of integer division
+            Shards.emplace_back(make_unique<Shard>(sizeLimit/numShards));
         }
     }
 
     bool Erase(const Key& key) {
         auto& shard = GetShard(key);
 
+        std::unique_lock<std::shared_mutex> uLock(shard.mtx);
+
         auto itKeyMap = shard.KeyMap.find(key);
         if (itKeyMap == shard.KeyMap.end()) {
             std::cerr << "Erase: key not found" << std::endl;
             return false;
         }
-
-        std::unique_lock<std::shared_mutex> uLock(shard.mtx);
 
         Node& node = itKeyMap->second;
         const auto& itFreqBuckets = shard.FreqBuckets.find(node.freq);
@@ -193,12 +194,11 @@ public:
         {
             shLock.unlock();
             std::unique_lock<std::shared_mutex> uniqueLock(shard.mtx);
-            // Check again the key exists after shLock was unlocked
             // Check if the key still exists after unlock-lock is inside UpdateFrequency func
             UpdateFrequency(shard, key);
         }
 
-        return itMap->second.value;
+        return val;
     }
 
     bool Exist(const Key& key) {
