@@ -170,7 +170,7 @@ TEST(TLfuCacheLockStripping, MultiShardReadWrite) {
 // Test concurrent accesses and LFU eviction across shards
 TEST(TLfuCacheLockStripping, MultiShardConcurrentEviction) {
     // Cache limit = 4, 2 shards
-    TLfuCacheLockStripping<int,int> cache(2, 2);
+    TLfuCacheLockStripping<int,int> cache(4, 2);
 
     // Step 1: Insert initial keys
     cache.Set(1, 10); // freq=1
@@ -214,4 +214,43 @@ TEST(TLfuCacheLockStripping, MultiShardConcurrentEviction) {
     EXPECT_EQ(*val5, 50);
     EXPECT_NE(val6, nullptr);
     EXPECT_EQ(*val6, 60);
+}
+
+// Test non-divisible SizeLimit across Shards
+TEST(TLfuCacheLockStripping, NonDivisibleSizeLimitDistribution) {
+    // sizeLimit not divisible by numShards
+    // 5 elements, 2 shards
+    TLfuCacheLockStripping<int,int> cache(5, 2);
+
+    // Insert exactly sizeLimit elements
+    for(int i = 0; i < 5; ++i) {
+        cache.Set(i, i*10);
+    }
+
+    // All 5 elements must exist
+    for(int i = 0; i < 5; ++i) {
+        auto val = cache.TryGet(i);
+        ASSERT_NE(val, nullptr);
+        EXPECT_EQ(*val, i*10);
+    }
+
+    // Insert one more element — should trigger exactly one eviction
+    cache.Set(100, 1000);
+
+    // Count how many elements remain in cache
+    int existingCount = 0;
+    for(int i = 0; i < 5; ++i) {
+        if (cache.Exist(i)) {
+            existingCount++;
+        }
+    }
+    if (cache.Exist(100)) {
+        existingCount++;
+    }
+
+    // Cache must still contain exactly 5 elements
+    EXPECT_EQ(existingCount, 5);
+
+    // Newly inserted key must exist
+    EXPECT_TRUE(cache.Exist(100));
 }

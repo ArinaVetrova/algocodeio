@@ -26,12 +26,13 @@ private:
         std::unordered_map<Key, Node> KeyMap;
         std::unordered_map<Frequency, std::list<Key>> FreqBuckets;
         Frequency MinFreq = 0;
+        size_t Capacity = 0;
 
         std::shared_mutex mtx;
 
-        Shard(size_t sizeLimits)
+        Shard(size_t cap): Capacity(cap)
         {
-            KeyMap.reserve(sizeLimits);
+            KeyMap.reserve(Capacity);
         }
     };
 
@@ -80,12 +81,11 @@ private:
         minBucket.pop_back();
 
         shard.KeyMap.erase(keyToErase);
+        std::cout << "evicted " << keyToErase << std::endl;
 
         if (minBucket.empty()) {
             shard.FreqBuckets.erase(shard.MinFreq);
         }
-        // Update MinFreq: find new minimum frequency in remaining buckets
-        UpdateMinFreq(shard);
     }
 
     void UpdateMinFreq(Shard& shard)
@@ -112,10 +112,12 @@ public:
     TLfuCacheLockStripping(size_t sizeLimit, size_t numShards): SizeLimit(sizeLimit), NumShards(numShards) {
         Shards.reserve(numShards);
 
+        int remainder = sizeLimit % numShards;
         for (size_t i = 0; i < numShards; ++i)
         {
-            // Total capacity may be smaller than requested because of integer division
-            Shards.emplace_back(make_unique<Shard>(sizeLimit/numShards));
+            // Distribute SizeLimit remainder across the first shards
+            Shards.emplace_back(make_unique<Shard>(sizeLimit/numShards + (remainder > 0 ? 1 : 0)));
+            remainder--;
         }
     }
 
@@ -164,7 +166,7 @@ public:
             return;
         }
 
-        if (shard.KeyMap.size() >= SizeLimit) {
+        if (shard.KeyMap.size() >= shard.Capacity) {
             EvictLFU(shard);
         }
 
