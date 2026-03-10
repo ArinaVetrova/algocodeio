@@ -4,8 +4,10 @@
 #include <list>
 #include <iostream>
 #include <thread>
-#include <shared_mutex>
+#include <mutex>
 #include <atomic>
+#include <memory>
+#include <shared_mutex>
 
 using namespace std;
 
@@ -15,7 +17,7 @@ private:
     using Frequency = int;
 
     struct Node {
-        shared_ptr<Val> value;
+        std::shared_ptr<Val> value;
         int freq;
         std::atomic<uint64_t> readCounter;
         std::list<Key>::iterator it;
