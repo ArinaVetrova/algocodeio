@@ -57,7 +57,7 @@ std::string encryptNode(
 }
 
 struct NodeEncyptionCollector {
-    std::shared_ptr<XmlNode> node;
+    const XmlNode* node;
     std::vector<std::string_view> path;
     size_t processedChilds = 0;
     EncryptedChildren encryptedChilds;
@@ -70,7 +70,7 @@ std::string encryptXmlTree(const XmlNode& root) {
     std::vector<std::string_view> curPath{root.tagName};
 
     std::stack<NodeEncyptionCollector> treeTraverseStack;
-    treeTraverseStack.emplace(std::make_shared<XmlNode>(root), curPath, 0);
+    treeTraverseStack.emplace(&root, curPath, 0);
 
     EncryptedChildren encryptedChilds;
 
@@ -84,9 +84,9 @@ std::string encryptXmlTree(const XmlNode& root) {
 
             std::vector<std::string_view> childPath = nodeWrp.path;
             childPath.push_back(childNode.tagName);
-            treeTraverseStack.emplace(std::make_shared<XmlNode>(childNode), childPath, 0);
+            treeTraverseStack.emplace(&childNode, childPath, 0);
         } else {  // tree leaf reached, start encrypt child nodes from the botton
-            auto& tagName = nodeWrp.path.back();  // contains last child tag
+            auto tagName = nodeWrp.path.back();  // contains last child tag
             res = encryptNode(nodeWrp.path, nodeWrp.node->text, nodeWrp.encryptedChilds);
 
             treeTraverseStack.pop();  // node encrypted
