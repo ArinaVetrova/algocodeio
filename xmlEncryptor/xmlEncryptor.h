@@ -18,13 +18,6 @@ struct XmlNode {
     std::vector<XmlNode> children;
 };
 
-struct NodeEncyptionCollector {
-    std::shared_ptr<XmlNode> node;
-    std::vector<std::string_view> path;
-    size_t processedChilds = 0;
-    EncryptedChildren encryptedChilds;
-};
-
 std::string encryptNode(
     const std::vector<std::string_view>& path, const std::string& text,
     const std::vector<std::pair<std::string_view /*tagName*/, std::string /*encryptedChild*/>>&
