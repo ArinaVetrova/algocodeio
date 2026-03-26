@@ -33,7 +33,7 @@ std::string encryptNode(
 
     return result;
 }
-struct NodeEncyptionCollector : std::enable_shared_from_this<NodeEncyptionCollector> {
+struct NodeEncryptionCollector : std::enable_shared_from_this<NodeEncryptionCollector> {
     const XmlNode* node;
     std::vector<std::string_view> path;
     EncryptedChildren encryptedChilds;
@@ -42,7 +42,7 @@ struct NodeEncyptionCollector : std::enable_shared_from_this<NodeEncyptionCollec
     std::function<void(std::string_view, std::string)> onDone;
     std::mutex mtx;
 
-    NodeEncyptionCollector(
+    NodeEncryptionCollector(
         const XmlNode* node,
         std::vector<std::string_view> path,
         std::function<void(std::string_view, std::string)> onDone,
@@ -56,7 +56,7 @@ struct NodeEncyptionCollector : std::enable_shared_from_this<NodeEncyptionCollec
     }
 
     void OnChildEncrypted(std::string_view tagName, std::string encrypted) {
-        std::shared_ptr<NodeEncyptionCollector> self = shared_from_this();
+        std::shared_ptr<NodeEncryptionCollector> self = shared_from_this();
         bool allDone = false;
         {
             std::lock_guard lock(mtx);
@@ -76,7 +76,7 @@ struct NodeEncyptionCollector : std::enable_shared_from_this<NodeEncyptionCollec
 
 static void SubmitLeaf(
     Pool& pool,
-    const std::shared_ptr<NodeEncyptionCollector>& collector)
+    const std::shared_ptr<NodeEncryptionCollector>& collector)
 {
     pool.Submit([collector]() {
         auto encrypted = encryptNode(collector->path, collector->node->text, {});
@@ -86,14 +86,14 @@ static void SubmitLeaf(
 
 static void EnqueueChildren(
     Pool& pool,
-    const std::shared_ptr<NodeEncyptionCollector>& collector,
-    std::queue<std::shared_ptr<NodeEncyptionCollector>>& queue)
+    const std::shared_ptr<NodeEncryptionCollector>& collector,
+    std::queue<std::shared_ptr<NodeEncryptionCollector>>& queue)
 {
     for (const auto& child : collector->node->children) {
         auto childPath = collector->path;
         childPath.push_back(child.tagName);
 
-        auto childCollector = std::make_shared<NodeEncyptionCollector>(
+        auto childCollector = std::make_shared<NodeEncryptionCollector>(
             &child,
             std::move(childPath),
             [parentCollector = collector](std::string_view tag, std::string encrypted) {
@@ -112,7 +112,7 @@ std::string encryptXmlTree(Pool& pool, const XmlNode& root) {
     std::condition_variable cv;
     bool done = false;
 
-    auto rootCollector = std::make_shared<NodeEncyptionCollector>(
+    auto rootCollector = std::make_shared<NodeEncryptionCollector>(
         &root,
         std::vector<std::string_view>{root.tagName},
         [&](std::string_view, std::string encrypted) {
@@ -126,7 +126,7 @@ std::string encryptXmlTree(Pool& pool, const XmlNode& root) {
         &pool
     );
 
-    std::queue<std::shared_ptr<NodeEncyptionCollector>> queue;
+    std::queue<std::shared_ptr<NodeEncryptionCollector>> queue;
     queue.push(rootCollector);
 
     while (!queue.empty()) {

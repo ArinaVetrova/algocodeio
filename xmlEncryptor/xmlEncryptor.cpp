@@ -47,7 +47,7 @@ std::string encryptNode(
     return result;
 }
 
-struct NodeEncyptionCollector {
+struct NodeEncryptionCollector {
     const XmlNode* node;
     std::vector<std::string_view> path;
     size_t processedChilds = 0;
@@ -55,7 +55,7 @@ struct NodeEncyptionCollector {
     // calling this calback field when the node is encrypted with encryptNode
     std::function<void(std::string_view, std::string)> onDone;
 
-    NodeEncyptionCollector(const XmlNode* node, std::vector<std::string_view> path,
+    NodeEncryptionCollector(const XmlNode* node, std::vector<std::string_view> path,
                            size_t processedChilds,
                            std::function<void(std::string_view, std::string)> onDone)
         : node(node),
@@ -67,7 +67,9 @@ struct NodeEncyptionCollector {
 std::string encryptXmlTree(const XmlNode& root) {
     std::string res;
 
-    std::stack<NodeEncyptionCollector, std::deque<NodeEncyptionCollector>> treeTraverseStack;
+    // Note! as a base container for std::stack - std::deque should be used here
+    // to avoid dangling references in callbacks after poping from the stack
+    std::stack<NodeEncryptionCollector, std::deque<NodeEncryptionCollector>> treeTraverseStack;
 
     // root using callback which writes to res
     treeTraverseStack.emplace(
@@ -75,7 +77,7 @@ std::string encryptXmlTree(const XmlNode& root) {
         [&res](std::string_view, std::string encrypted) { res = std::move(encrypted); });
 
     while (!treeTraverseStack.empty()) {
-        NodeEncyptionCollector& nodeWrp = treeTraverseStack.top();
+        NodeEncryptionCollector& nodeWrp = treeTraverseStack.top();
 
         if (nodeWrp.processedChilds < nodeWrp.node->children.size()) {
             const XmlNode& childNode = nodeWrp.node->children[nodeWrp.processedChilds];
