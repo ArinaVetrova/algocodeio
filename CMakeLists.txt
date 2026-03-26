@@ -22,3 +22,6 @@ target_link_libraries(LfuCacheLockStripping PRIVATE GTest::gtest GTest::gtest_ma
 
 add_executable(xmlEncryptor xmlEncryptor/xmlEncryptor.h xmlEncryptor/xmlEncryptor.cpp xmlEncryptor/testXmlEncryptor.cpp xmlEncryptor/main.cpp)
 target_link_libraries(xmlEncryptor PRIVATE GTest::gtest GTest::gtest_main Threads::Threads)
+
+add_executable(xmlEncryptorMt xmlEncryptor/xmlEncryptorMt.h xmlEncryptor/xmlEncryptorMt.cpp xmlEncryptor/testXmlEncryptorMt.cpp xmlEncryptor/main.cpp)
+target_link_libraries(xmlEncryptorMt PRIVATE GTest::gtest GTest::gtest_main Threads::Threads)
