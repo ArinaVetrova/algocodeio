@@ -1,15 +1,16 @@
 #pragma once
 
+#include <atomic>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <stack>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <functional>
-#include <thread>
 
 using EncryptedChildren =
     std::vector<std::pair<std::string_view /*tagName*/, std::string /*encryptedChild*/>>;
@@ -21,16 +22,14 @@ struct XmlNode {
 };
 
 class Pool {
-public:
-	virtual void Submit(std::function<void()> task) {}
+   public:
+    virtual void Submit(std::function<void()> task) {}
 };
 
 // added simple pool to be able to run the tests
 class SimplePool : public Pool {
-public:
-    void Submit(std::function<void()> task) override {
-        std::thread(std::move(task)).detach();
-    }
+   public:
+    void Submit(std::function<void()> task) override { std::thread(std::move(task)).detach(); }
 };
 
 std::string encryptNode(

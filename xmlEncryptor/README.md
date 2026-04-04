@@ -27,17 +27,17 @@
 
 1. **Расширена структура NodeEncryptionCollector**
    По сравнению с однопоточной версией добавлены поля для многопоточной работы:
-   - `remainChilds`: счётчик детей ожидающих шифрования (вместо `processedChilds` из v1)
+   - `remainChilds`: атомарный счётчик детей ожидающих шифрования (вместо `processedChilds` из v1)
    - `pool`: указатель на пул потоков для отправки задач шифрования
-   - `mtx`: мьютекс для защиты `encryptedChilds` и `remainChilds` от гонок
    - наследует `std::enable_shared_from_this` — чтобы безопасно передавать `shared_ptr` на себя в задачи пула
+   - `encryptedChilds` инициализируется через `resize` вместо `reserve` — чтобы каждый ребёнок писал результат строго по своему индексу и порядок детей был гарантирован независимо от порядка завершения потоков
 
 2. **Добавлен метод `OnChildEncrypted`**
-   Вызывается дочерним узлом когда он зашифрован. Под локом добавляет результат в `encryptedChilds` и уменьшает `remainChilds`. Если `remainChilds` стал 0 — все дети готовы, отправляет шифрование текущего узла в пул через `pool->Submit`.
+   Вызывается дочерним узлом когда он зашифрован. Пишет результат в `encryptedChilds[childIdx]` по индексу без мьютекса — каждый поток пишет в свой индекс. Уменьшает `remainChilds` через `fetch_sub(1, memory_order_acq_rel)` — минимальный memory order который гарантирует что запись в `encryptedChilds` у всех потоков видна последнему потоку перед запуском `encryptNode`. Если `fetch_sub` вернул 1 — все дети готовы, отправляет шифрование текущего узла в пул через `pool->Submit`.
 
 3. **Вспомогательные функции**
    - `SubmitLeaf` — отправляет листовой узел в пул на немедленное шифрование
-   - `EnqueueChildren` — создаёт `NodeEncryptionCollector` для каждого ребёнка и добавляет их в очередь с callback который вызывает `OnChildEncrypted` у родителя
+   - `EnqueueChildren` — создаёт `NodeEncryptionCollector` для каждого ребёнка с его индексом и добавляет в очередь с callback который вызывает `OnChildEncrypted(childIdx, ...)` у родителя
 
 4. **Реализация функции `encryptXmlTree`**
    Обход дерева и шифрование разделены в отличие от однопоточной версии.
@@ -55,10 +55,10 @@ root → child1 → subChild1
 ```
 ```
 Главный поток: BFS обход → SubmitLeaf(subChild1), SubmitLeaf(subChild2) → cv.wait()
-Поток 1: encryptNode(subChild1) → OnChildEncrypted(child1) → remainChilds=0 → SubmitLeaf(child1)
-Поток 2: encryptNode(subChild2) → OnChildEncrypted(child2) → remainChilds=0 → SubmitLeaf(child2)
-Поток 1: encryptNode(child1) → OnChildEncrypted(root) → remainChilds=1
-Поток 2: encryptNode(child2) → OnChildEncrypted(root) → remainChilds=0 → SubmitLeaf(root)
+Поток 1: encryptNode(subChild1) → OnChildEncrypted(0, child1) → remainChilds=0 → Submit(child1)
+Поток 2: encryptNode(subChild2) → OnChildEncrypted(1, child2) → remainChilds=0 → Submit(child2)
+Поток 1: encryptNode(child1) → OnChildEncrypted(0, root) → remainChilds=1
+Поток 2: encryptNode(child2) → OnChildEncrypted(1, root) → remainChilds=0 → Submit(root)
 Поток 1: encryptNode(root) → callback1 → cv.notify_one()
 Главный поток: просыпается → return res
 ```
