@@ -1,7 +1,10 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.10)
 project(algocodeio)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 
 find_package(GTest REQUIRED)
 
@@ -25,3 +28,6 @@ target_link_libraries(xmlEncryptor PRIVATE GTest::gtest GTest::gtest_main Thread
 
 add_executable(xmlEncryptorMt xmlEncryptor/xmlEncryptorMt.h xmlEncryptor/xmlEncryptorMt.cpp xmlEncryptor/testXmlEncryptorMt.cpp xmlEncryptor/main.cpp)
 target_link_libraries(xmlEncryptorMt PRIVATE GTest::gtest GTest::gtest_main Threads::Threads)
+
+add_executable(workStealingPool xmlEncryptor/workStealingPool.h xmlEncryptor/workStealingPool.cpp xmlEncryptor/testWorkStealingPool.cpp xmlEncryptor/main.cpp)
+target_link_libraries(workStealingPool PRIVATE GTest::gtest GTest::gtest_main Threads::Threads)

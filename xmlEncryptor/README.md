@@ -67,4 +67,32 @@ root → child1 → subChild1
 
 ---
 
-## Версия 3 – WorkStealingPool for xmlEncryptor (`xmlEncryptorWorkStealingPool.cpp`) - // TODO
+## Версия 3 – WorkStealingPool for xmlEncryptor (`workStealingPool.cpp`)
+
+1. Принцип работы
+
+**WorkStealingPool** — пул потоков, где каждый поток имеет свою локальную очередь задач. Если у потока нет задач — он "ворует" задачу из очереди другого потока.
+
+2. Структура
+
+- **WorkerQueue**: очередь задач (`std::deque`), мьютекс, условная переменная, поток (`std::jthread`)
+- **workers**: `vector<unique_ptr<WorkerQueue>>` - uniqur_ptr выбран, т.к. содержимое WorkerQueue может быть только перемещено из-за мьютека и cv
+- **activeTasks**: атомарный счётчик активных задач для ожидания завершения всех задач
+- **submitIdx**: атомарный индекс в `vector<unique_ptr<WorkerQueue>>` для round-robin распределения
+
+3. Алгоритм работы потока
+
+```cpp
+while (!stop_requested) {
+    // 1. Берём задачу из своей очереди (с конца)
+    task = tryPopOwn();
+    
+    // 2. Если нет - воруем у других (с начала)
+    if (!task) task = trySteal();
+    
+    // 3. Выполняем или засыпаем
+    if (task) task();
+    else cv.wait();
+}
+```
+4. Тесты -  `testWorlStealingPool.cpp`
