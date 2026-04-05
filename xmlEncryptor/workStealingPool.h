@@ -20,6 +20,9 @@ class WorkStealingPool {
     // Submits a task to the pool for execution
     void Submit(std::function<void()> task);
 
+    // Submit to a certain worker - only for testing
+    void SubmitToWorker(size_t workerIdx, std::function<void()> task);
+
     // Waits for all tasks in all threads done
     void WaitAllTasksDone();
 
