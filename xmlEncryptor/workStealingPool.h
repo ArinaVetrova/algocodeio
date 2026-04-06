@@ -31,7 +31,6 @@ class WorkStealingPool {
     struct WorkerQueue {
         std::deque<std::function<void()>> tasks;  // Queue of pending tasks (LIFO for own queue)
         std::mutex mtx;                           // Mutex for protecting tasks access
-        std::condition_variable cv;               // Condition variable for task notification
         std::jthread thr;                         // Worker thread
 
         WorkerQueue() = default;
@@ -46,8 +45,12 @@ class WorkStealingPool {
     std::atomic<size_t> submitIdx{0};                   // Round-robin index for task distribution
 
     std::atomic<int> activeTasks = 0;
+
     std::mutex allDoneMtx;
     std::condition_variable allDoneCv;
+
+    std::condition_variable idleCv; // Condition variable for task added notification
+    std::mutex idleMtx; // mutex for idleCv lock
 
     // Tries to pop a task from own queue (LIFO - work stealing optimization)
     std::function<void()> tryPopOwn(size_t idx);

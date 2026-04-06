@@ -95,4 +95,21 @@ while (!stop_requested) {
     else cv.wait();
 }
 ```
-4. Тесты -  `testWorlStealingPool.cpp`
+
+4. Алгоритм работы WorkStealingPool:
+```
+Submit:
+   кладёт задачу в очередь
+   увеличивает activeTasks
+   будит один поток (idleCv.notify_one())
+Worker:
+   пытается взять свою задачу
+   если нет → ворует
+   если нет → засыпает
+Когда задача выполняется:
+   activeTasks--
+   если 0 → будим всех (allDoneCv)
+WaitAllTasksDone():
+   ждёт, пока activeTasks == 0
+```
+5. Тесты -  `testWorlStealingPool.cpp`

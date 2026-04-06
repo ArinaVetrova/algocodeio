@@ -63,8 +63,8 @@ WorkStealingPool::WorkStealingPool(size_t numThreads) {
                     task();
                 } else {
                     // No work available - wait for notification
-                    std::unique_lock lock(workers[i]->mtx);
-                    workers[i]->cv.wait(lock, [&] {
+                    std::unique_lock lock(idleMtx);
+                    idleCv.wait(lock, [&] {
                         if (token.stop_requested()) return true;
                         if (!workers[i]->tasks.empty()) return true;
                         // check if there is any task to steal
@@ -88,9 +88,8 @@ WorkStealingPool::~WorkStealingPool() {
     for (auto& worker : workers) {
         worker->thr.request_stop();
     }
-    for (auto& worker : workers) {
-        worker->cv.notify_all();
-    }
+
+    idleCv.notify_all();
 }
 
 void WorkStealingPool::Submit(std::function<void()> task) {
@@ -105,7 +104,7 @@ void WorkStealingPool::Submit(std::function<void()> task) {
             }
         });
     }
-    workers[idx]->cv.notify_one();
+    idleCv.notify_one();
 }
 
 void WorkStealingPool::SubmitToWorker(size_t workerIdx, std::function<void()> task) {
@@ -113,9 +112,13 @@ void WorkStealingPool::SubmitToWorker(size_t workerIdx, std::function<void()> ta
     std::lock_guard lock(workers[workerIdx]->mtx);
     workers[workerIdx]->tasks.push_back([this, task = std::move(task)]() mutable {
         task();
-        if (activeTasks.fetch_sub(1) == 1) allDoneCv.notify_all();
+        if (activeTasks.fetch_sub(1) == 1)
+        {
+            std::lock_guard lock(allDoneMtx);
+            allDoneCv.notify_all();
+        }
     });
-    workers[workerIdx]->cv.notify_one();
+    idleCv.notify_one();
 }
 
 void WorkStealingPool::WaitAllTasksDone() {
