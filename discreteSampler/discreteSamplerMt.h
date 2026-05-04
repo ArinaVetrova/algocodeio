@@ -1,7 +1,9 @@
 #include <cassert>
 #include <functional>
 #include <iostream>
+#include <mutex>
 #include <random>
+#include <shared_mutex>
 #include <vector>
 
 template <typename T>
@@ -24,6 +26,7 @@ class DiscreteDistributionSampler {
     }
 
     void Add(const std::pair<T, float>& elem) {
+        std::unique_lock<std::shared_mutex> lock(mtx);
         float weight = elem.second;
         assert(weight > 0.0);
         objects_.push_back(elem.first);
@@ -32,7 +35,8 @@ class DiscreteDistributionSampler {
         cumulativeWeights_.push_back(prev + weight);
     }
 
-    T Sample() const {
+    T Sample() {
+        std::shared_lock lock(mtx);
         float target;
         if (randomGenerator_) {
             auto r = randomGenerator_();
@@ -54,4 +58,6 @@ class DiscreteDistributionSampler {
     std::vector<float> cumulativeWeights_;
     float totalWeight_ = 0.0;
     std::function<float()> randomGenerator_;
+
+    std::shared_mutex mtx;
 };

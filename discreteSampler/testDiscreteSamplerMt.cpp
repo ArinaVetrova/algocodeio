@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
-#include "discreteSampler.h"
+#include <thread>
+
+#include "discreteSamplerMt.h"
 
 TEST(DiscreteDistributionSampler, OneElement) {
     auto gen = []() { return 0.1f; };
@@ -34,8 +36,8 @@ TEST(DiscreteDistributionSampler, AddToEmptySampler) {
 }
 
 TEST(DiscreteDistributionSampler, AddElementToExisting) {
-    int callCount = 0;
-    auto gen = [&]() -> float {
+    auto gen = []() -> float {
+        static int callCount = 0;
         static const float values[] = {0.1f, 0.6f, 0.9f};
         return values[callCount++ % 3];
     };
@@ -66,4 +68,56 @@ TEST(DiscreteDistributionSampler, MultipleAdds) {
     EXPECT_EQ(sampler.Sample(), 30);
     EXPECT_EQ(sampler.Sample(), 40);
     EXPECT_EQ(sampler.Sample(), 40);
+}
+
+TEST(DiscreteDistributionSamplerMt, ThreadSafetySample) {
+    DiscreteDistributionSampler<int> sampler({{10, 1.0}, {20, 2.0}, {30, 3.0}});
+
+    std::vector<std::thread> threads;
+    std::atomic<int> errors{0};
+
+    for (int i = 0; i < 10; i++) {
+        threads.emplace_back([&sampler, &errors]() {
+            for (int j = 0; j < 1000; j++) {
+                auto result = sampler.Sample();
+                if (result != 10 && result != 20 && result != 30) {
+                    errors++;
+                }
+            }
+        });
+    }
+
+    for (auto& t : threads) t.join();
+    EXPECT_EQ(errors, 0);
+}
+
+TEST(DiscreteDistributionSamplerMt, ThreadSafetySampleAndAdd) {
+    DiscreteDistributionSampler<int> sampler({{10, 1.0}, {20, 2.0}});
+
+    std::vector<std::thread> threads;
+    std::atomic<bool> crashed{false};
+
+    // много читателей
+    for (int i = 0; i < 10; i++) {
+        threads.emplace_back([&sampler, &crashed]() {
+            for (int j = 0; j < 1000; j++) {
+                try {
+                    sampler.Sample();
+                } catch (...) {
+                    crashed = true;
+                }
+            }
+        });
+    }
+
+    // rare writer
+    threads.emplace_back([&sampler]() {
+        for (int i = 30; i <= 50; i += 10) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            sampler.Add({i, 1.0f});
+        }
+    });
+
+    for (auto& t : threads) t.join();
+    EXPECT_FALSE(crashed);
 }

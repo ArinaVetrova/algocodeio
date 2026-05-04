@@ -34,3 +34,6 @@ target_link_libraries(workStealingPool PRIVATE GTest::gtest GTest::gtest_main Th
 
 add_executable(discreteSampler discreteSampler/discreteSampler.h discreteSampler/testDiscreteSampler.cpp discreteSampler/main.cpp)
 target_link_libraries(discreteSampler PRIVATE GTest::gtest GTest::gtest_main Threads::Threads)
+
+add_executable(discreteSamplerMt discreteSampler/discreteSamplerMt.h discreteSampler/testDiscreteSamplerMt.cpp discreteSampler/main.cpp)
+target_link_libraries(discreteSamplerMt PRIVATE GTest::gtest GTest::gtest_main Threads::Threads)
