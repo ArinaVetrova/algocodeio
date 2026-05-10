@@ -31,3 +31,12 @@ target_link_libraries(xmlEncryptorMt PRIVATE GTest::gtest GTest::gtest_main Thre
 
 add_executable(workStealingPool xmlEncryptor/workStealingPool.h xmlEncryptor/workStealingPool.cpp xmlEncryptor/testWorkStealingPool.cpp xmlEncryptor/main.cpp)
 target_link_libraries(workStealingPool PRIVATE GTest::gtest GTest::gtest_main Threads::Threads)
+
+add_executable(discreteSampler discreteSampler/discreteSampler.h discreteSampler/testDiscreteSampler.cpp discreteSampler/main.cpp)
+target_link_libraries(discreteSampler PRIVATE GTest::gtest GTest::gtest_main Threads::Threads)
+
+add_executable(discreteSamplerMt discreteSampler/discreteSamplerMt.h discreteSampler/testDiscreteSamplerMt.cpp discreteSampler/main.cpp)
+target_link_libraries(discreteSamplerMt PRIVATE GTest::gtest GTest::gtest_main Threads::Threads)
+
+target_compile_options(discreteSamplerMt PRIVATE -fsanitize=thread -g)
+target_link_options(discreteSamplerMt PRIVATE -fsanitize=thread)
