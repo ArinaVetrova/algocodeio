@@ -97,7 +97,6 @@ TEST(DiscreteDistributionSamplerMt, ThreadSafetySampleAndAdd) {
     std::vector<std::thread> threads;
     std::atomic<bool> crashed{false};
 
-    // много читателей
     for (int i = 0; i < 10; i++) {
         threads.emplace_back([&sampler, &crashed]() {
             for (int j = 0; j < 1000; j++) {
